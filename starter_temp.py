@@ -1,6 +1,6 @@
 # блок логирования
 import logging
-logging.basicConfig(level=logging.INFO, filename="//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/py_log.log",filemode="w", format="%(asctime)s %(levelname)s %(message)s")
+logging.basicConfig(level=logging.INFO, filename="//temp_/py_log.log",filemode="w", format="%(asctime)s %(levelname)s %(message)s")
 # https://habr.com/ru/companies/wunderfund/articles/683880/   - ссылка на статью логирования
 # filemode="a" дозапись "w" - перезапись
 logging.info("Запуск скрипта starter_temp.py")
@@ -128,9 +128,9 @@ def send_mail(dst_emails=''):
                     <p><br>
                         <strong>Здравствуйте</strong><br>
                         <br>
-                        Во вложении темпы на {(datetime.now()- timedelta(1)).strftime('%d-%m-%Y')} 
+                        Во вложении темпы на {(datetime.now()- timedelta(1)).strftime('%d-%m-%Y')} <br>
 
-                        письмо сформировано автоматически** <br>
+                        письмо сформировано автоматически <br>
                         <br>
                     </p>
                 </body>
@@ -160,8 +160,8 @@ def send_mail(dst_emails=''):
     
 
 # письмо если есть ошибки
-def send_mail_error(dst_emails=''):
-    logging.info(f"{send_mail_error.__name__} - ЗАПУСК")
+def send_mail_danger(dst_emails=''):
+    logging.info(f"{send_mail_danger.__name__} - ЗАПУСК")
     
     try:
         xlsxfile = '//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/py_log.log'
@@ -205,26 +205,26 @@ def send_mail_error(dst_emails=''):
         s.sendmail(me, to, msg.as_string())
         s.quit()
         
-        logging.info(f"{send_mail_error.__name__} - ВЫПОЛНЕНО")
+        logging.info(f"{send_mail_danger.__name__} - ВЫПОЛНЕНО")
         logging.info(f"Адреса рассылки {dst_emails}")
     except:
-        logging.error(f"{send_mail_error.__name__} - ОШИБКА", exc_info=True)
+        logging.error(f"{send_mail_danger.__name__} - ОШИБКА", exc_info=True)
     
 
-def detected_error(filename_log = "//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/py_log.log"):
+def detected_danger(filename_log = "//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/py_log.log"):
     """обнаружение ошибок в логах   
     ищет 'warning'
 
     Returns:
         _type_: bool
     """
-    logging.info(f"{detected_error.__name__} - ЗАПУСК")
+    logging.info(f"{detected_danger.__name__} - ЗАПУСК")
     
     try:
         with open(filename_log, '+r') as file:
             return 'warning' in file.read().lower()
     except:
-        logging.error(f"{detected_error.__name__} - ОШИБКА", exc_info=True)
+        logging.error(f"{detected_danger.__name__} - ОШИБКА", exc_info=True)
         
         
 def sending_mail(lst_email, lst_email_error):
@@ -234,10 +234,10 @@ def sending_mail(lst_email, lst_email_error):
     logging.info(f"{sending_mail.__name__} - ЗАПУСК")
     
     try:
-        if detected_error()==False:
+        if detected_danger()==False:
             send_mail(lst_email)
         else:
-            send_mail_error(lst_email_error)
+            send_mail_danger(lst_email_error)
             
         logging.info(f"{sending_mail.__name__} - ВЫПОЛНЕНО")
     except:
@@ -245,7 +245,7 @@ def sending_mail(lst_email, lst_email_error):
         
         
 
-lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment/NP-Chery.xlsm',
+lst_df = {'df_chr_msc' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'CHERY',
                           'lst_sheet_name' : 'Авто',
@@ -259,7 +259,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'кре_нал': 'кре_нал'}},
           
-          'df_kia_msc' : {'link': '//sim.local/data/Varsh/DPA/КИА-ЮЗ/NP-ЮЗ-Киа.xlsm',
+          'df_kia_msc' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'KIA',
                           'lst_sheet_name' : 'Авто',
@@ -273,7 +273,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
           
-          'df_kia_msc_korp' : {'link': '//sim.local/data/Varsh/DPA/КИА-ЮЗ/NP-ЮЗ-Киа-Корп.xlsm',
+          'df_kia_msc_korp' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'KIA',
                           'lst_sheet_name' : 'Авто',
@@ -288,7 +288,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'б_н___нал': 'кре_нал'}},
           
           
-          'df_kia_msc_arhiv' : {'link': '//sim.local/data/Varsh/OFFICE/CAGROUP/АВТО/АВТО продажи/Архив/КИА/NP_kia.xlsx',
+          'df_kia_msc_arhiv' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'KIA',
                           'lst_sheet_name' : 'NP',
@@ -302,7 +302,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
           
-          'df_suz_msc_vved' : {'link': '//sim.local/data/Varsh/DPA/Юго-Запад/Payment/NP-ЮЗ.xlsm',
+          'df_suz_msc_vved' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'SUZUKI',
                           'lst_sheet_name' : 'Авто',
@@ -316,7 +316,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
           
-          'df_suz_msc_madi' : {'link': '//Sim.local/data/Madi/FIN/Payment/NP-M.xlsm',
+          'df_suz_msc_madi' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'SUZUKI',
                           'lst_sheet_name' : 'Авто',
@@ -330,7 +330,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
           
-          'df_ovp_msc_vved' : {'link': '//sim.local/data/Varsh/DPA/Юго-Запад/Payment/ОВП ЮЗ.xlsx',
+          'df_ovp_msc_vved' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'OVP',
                           'lst_sheet_name' : 'Склад',
@@ -344,7 +344,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'цена_продажи,_руб.' : 'сум_спр_сч', 
                                           'примечание': 'кре_нал'}},
           
-          'df_ovp_msc_madi' : {'link': '//sim.local/data/Madi/FIN/Payment/ОВП МАДИ.xlsx',
+          'df_ovp_msc_madi' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'OVP',
                           'lst_sheet_name' : 'Склад',
@@ -358,7 +358,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'цена_продажи,_руб.' : 'сум_спр_сч', 
                                           'примечание': 'кре_нал'}},
           
-          'df_mzd_msc_vved' : {'link': '//sim.local/data/Varsh/DPA/MAZDA-ЮЗ/Payment/NP-МаздаМосква.xlsm',
+          'df_mzd_msc_vved' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'MAZDA',
                           'lst_sheet_name' : 'Авто',
@@ -372,7 +372,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
           
-          'df_jtr_msc_vved' : {'link': '//Sim.local/data/Varsh/DPA/MAZDA-ЮЗ/JETOUR ЮЗ/Диспонент/NP-Jetour.xlsm',
+          'df_jtr_msc_vved' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'JETOUR',
                           'lst_sheet_name' : 'Авто',
@@ -386,7 +386,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
           
-          'df_bai_msc_varsh' : {'link': '//sim.local/data/Varsh/SalonHyundai/Секретари-оформители/внутренние отчеты/Склад BAIC Москва.xlsx',
+          'df_bai_msc_varsh' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'BAIC',
                           'lst_sheet_name' : 'СКЛАД',
@@ -400,7 +400,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_оплаченная_клиентом' : 'сум_спр_сч', 
                                           'нал_кредит': 'кре_нал'}},
           
-           'df_hyu_msc_varsh' : {'link': '//sim.local/data/Varsh/SalonHyundai/Секретари-оформители/внутренние отчеты/Склад HYUNDAI Москва.xlsx',
+           'df_hyu_msc_varsh' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'HYUNDAI',
                           'lst_sheet_name' : 'СКЛАД',
@@ -414,7 +414,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_оплаченная_клиентом' : 'сум_спр_сч', 
                                           'нал_кредит': 'кре_нал'}},
            
-           'df_hyu_uka_msc_varsh' : {'link': '//sim.local/data/Varsh/SalonHyundai/Секретари-оформители/online продажи/UKA/Склад UKA - Аукцион.xlsx',
+           'df_hyu_uka_msc_varsh' : {'link': '//<link>.xlsm',
                           'reg': 'MSK',
                           'brand' : 'UKA',
                           'lst_sheet_name' : 'Склад UKA-Аукцион',
@@ -428,7 +428,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_оплаченная_клиентом' : 'сум_спр_сч', 
                                           'нал_кредит': 'кре_нал'}},
            
-           'df_suz_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/Mazda!/Сетевая информация/Отчеты NP/NP-SuzYarNEW 2020.xlsm',
+           'df_suz_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'SUZUKI',
                           'lst_sheet_name' : 'Авто',
@@ -442,7 +442,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
            
-           'df_mzd_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/Mazda!/Сетевая информация/Отчеты NP/NP-Mazda 2020.xlsm',
+           'df_mzd_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'MAZDA',
                           'lst_sheet_name' : 'Авто',
@@ -456,7 +456,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
            
-            'df_ren_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/Отдел логистики/NP. PLAN-REAL/New_Pay$ (RUB) Ярославль.xlsm',
+            'df_ren_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'RENAULT',
                           'lst_sheet_name' : 'Авто',
@@ -470,7 +470,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
             
-             'df_hyu_yar' : {'link': '//sim.local/data/Yar/YAR_Hyundai/Отдел продаж/ОТЧЕТЫ/New_Pay$ (RUB)Hyundai.xlsm',
+             'df_hyu_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'HYUNDAI',
                           'lst_sheet_name' : 'Авто',
@@ -484,7 +484,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
              
-             'df_vw_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/Volkswagen/!Отдел продаж/ЛОГИСТ/NP/NP-Volkswagen.xlsm',
+             'df_vw_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'VOLKSWAGEN',
                           'lst_sheet_name' : 'Авто',
@@ -498,7 +498,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
              
-              'df_chv_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/Chevrolet/Логистика/New_Pay$ (RUB) Chevrolet.xlsm',
+              'df_chv_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'CHEVROLET',
                           'lst_sheet_name' : 'Авто',
@@ -512,7 +512,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
               
-              'df_ovp_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/TRADE-IN/Отчеты для Москвы/Новый ОВП/ОВП-Яр..xlsx',
+              'df_ovp_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'OVP',
                           'lst_sheet_name' : 'Склад',
@@ -526,7 +526,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'цена_продажи,_руб.' : 'сум_спр_сч', 
                                           'примечание': 'кре_нал'}},
               
-               'df_jac_yar' : {'link': '//sim.local/data/Yar/YAR_JAC/Отдел продаж/Логистика/New_Pay$ (RUB) Jac.xlsm',
+               'df_jac_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'JAC',
                           'lst_sheet_name' : 'Авто',
@@ -540,7 +540,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
                
-                'df_mch_yar' : {'link': '//sim.local/data/Yar/YAR_Moskvich/Отдел продаж/ЛОГИСТИКА/New_Pay$ (RUB) Москвич.xlsm',
+                'df_mch_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'MOSKVICH',
                           'lst_sheet_name' : 'Авто',
@@ -554,7 +554,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
                 
-                'df_faw_yar' : {'link': '//sim.local/data/Yar/YAR_FAW/Отдел продаж/ЛОГИСТ FAW+JETTA/NP/NP-FAW.xlsm',
+                'df_faw_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'FAW',
                           'lst_sheet_name' : 'Авто',
@@ -568,7 +568,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
                 
-                'df_jet_yar' : {'link': '//sim.local/data/Yar/YAR_FAW/Отдел продаж/ЛОГИСТ FAW+JETTA/NP/NP-JETTA.xlsm',
+                'df_jet_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'JETTA',
                           'lst_sheet_name' : 'Авто',
@@ -582,7 +582,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
                 
-                 'df_chr_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/Mazda!/Сетевая информация/Отчеты NP/NP-Chery 2023.xlsm',
+                 'df_chr_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'CHERY',
                           'lst_sheet_name' : 'Авто',
@@ -596,7 +596,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
                  
-                  'df_bai_yar' : {'link': '//sim.local/data/Yar/YAR_BAIC/Отдел продаж/ЛОГИСТИКА/New_Pay$ (RUB)Baic.xlsm',
+                  'df_bai_yar' : {'link': '//<link>.xlsm',
                           'reg': 'YAR',
                           'brand' : 'BAIC',
                           'lst_sheet_name' : 'Авто',
@@ -610,7 +610,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
                   
-                   'df_ren_ryb' : {'link': '//sim.local/data/Yar/Старая папка Общая/Отдел логистики/NP. PLAN-REAL/New_Pay$ (RUB) Рыбинск.xlsm',
+                   'df_ren_ryb' : {'link': '//<link>.xlsm',
                           'reg': 'RYB',
                           'brand' : 'RENAULT',
                           'lst_sheet_name' : 'Авто',
@@ -624,7 +624,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
                    
-                    'df_prch_ryb' : {'link': '//sim.local/data/Yar/YAR_Rybinsk/Отдел продаж/!ОТЧЕТЫ/New_Pay$ (RUB)Rybinsk.xlsm',
+                    'df_prch_ryb' : {'link': '//<link>.xlsm',
                           'reg': 'RYB',
                           'brand' : 'PRCH',
                           'lst_sheet_name' : 'Авто',
@@ -638,7 +638,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
                                           'б_н___нал': 'кре_нал'}},
                     
-                    'df_mzd_sar' : {'link': '//Sim.local/data/Varsh/DPA/САРАТОВ/NP-MazdaСаратов.xlsm',
+                    'df_mzd_sar' : {'link': '//<link>.xlsm',
                           'reg': 'SAR',
                           'brand' : 'MAZDA',
                           'lst_sheet_name' : 'Авто',
@@ -653,7 +653,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'б_н___нал': 'кре_нал'}},
                     
                     
-                     'df_omd_sar' : {'link': '//Sim.local/data/Varsh/DPA/САРАТОВ/NP-OmodaСаратов.xlsm',
+                     'df_omd_sar' : {'link': '//<link>.xlsm',
                           'reg': 'SAR',
                           'brand' : 'OMODA',
                           'lst_sheet_name' : 'Авто',
@@ -668,7 +668,7 @@ lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment
                                           'б_н___нал': 'кре_нал'}},
                      
                      
-                     'df_ovp_sar' : {'link': '//Sim.local/data/Varsh/DPA/САРАТОВ/ОВП-Саратов.xlsx',
+                     'df_ovp_sar' : {'link': '//<link>.xlsm',
                           'reg': 'SAR',
                           'brand' : 'OVP',
                           'lst_sheet_name' : 'Склад',
@@ -1108,7 +1108,8 @@ except:
     
     
 # список с адресами рассылки
-lst_email = 'skrutko@sim-auto.ru, zhurin@sim-auto.ru' # нет ошибок
-lst_email_error = 'skrutko@sim-auto.ru, zhurin@sim-auto.ru' # есть ошибки
+lst_email = 'xxxxx@sim-auto.ru, xxxxx@sim-auto.ru, xxxxxxx@sim-auto.ru' # нет ошибок
+lst_email_error = 'xxxxx@sim-auto.ru' # есть ошибки
 # запуск функции рассылки почты
 sending_mail(lst_email, lst_email_error)
+
