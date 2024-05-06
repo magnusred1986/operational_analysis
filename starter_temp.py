@@ -1097,11 +1097,17 @@ logging.info(f"Обновляем сводные таблицы")
 try:
     xlapp = win32com.client.DispatchEx("Excel.Application")
     wb = xlapp.Workbooks.Open("//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/ТЕМП_СВОД1.xlsx")
+    wb.Application.AskToUpdateLinks = False   # разрешает автоматическое  обновление связей (файл - парметры - дополнительно - общие - убирает галку запрашивать об обновлениях связей)
     wb.RefreshAll()
     time.sleep(60) # задержка 60 секунд, чтоб уж точно обновились сводные wb.RefreshAll() - иначе будет ошибка 
+    wb.Application.AskToUpdateLinks = True   # запрещает автоматическое  обновление связей / то есть в настройках экселя (ставим галку обратно)
     wb.Save()
     wb.Close()
     xlapp.Quit()
+    wb = None # обнуляем сслыки переменных иначе процесс эксел ь не завершается и висит в дистпетчере
+    xlapp = None # обнуляем сслыки переменных иначе процесс эксел ь не завершается и висит в дистпетчере
+    del wb # удаляем сслыки переменных иначе процесс эксел ь не завершается и висит в дистпетчере
+    del xlapp # удаляем сслыки переменных иначе процесс эксел ь не завершается и висит в дистпетчере
     logging.info(f"сводные таблицы - обновлены")
 except:
     logging.error(f"ОШИБКА", exc_info=True)
