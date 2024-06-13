@@ -26,6 +26,23 @@ from email.mime.text import MIMEText
 from email.utils import formatdate
 from email import encoders
 
+def read_email_adress(mail = fr'\\sim.local\data\Varsh\OFFICE\CAGROUP\run_python\task_scheduler\temp_\Список_адресатов.xlsx'):
+    """Функция считывания адресатов для рассылки
+
+    Args:
+        mail (_type_, optional): _description_. Defaults to fr'\sim.local\data\Varsh\OFFICE\CAGROUP\run_python\task_scheduler\temp_\Список_адресатов.xlsx'.
+
+    Returns:
+        _type_: возфращает строку со списком email
+    """
+    logging.info(f"запуск функции {read_email_adress.__name__}")
+    
+    try:
+        em_list = pd.read_excel(mail)
+        return list(em_list['email'])
+    except:
+        logging.error(f"{read_email_adress.__name__} - ОШИБКА", exc_info=True)
+
 def testing_links(links:list):
     """Проверка ссылкок на файлы  
     
@@ -54,12 +71,11 @@ def reg_test(rg, podr):
     Returns:
         _type_: _description_
     """
-    logging.info(f"запуск функции {reg_test.__name__}")
     
     if rg == 'YAR':
-        if 'яр' in podr.lower():
+        if 'яр' in str(podr).lower():
             return 'YAR'
-        elif 'рыб' in podr.lower():
+        elif 'рыб' in str(podr).lower():
             return 'RYB'
     else:
         return rg
@@ -128,105 +144,91 @@ def my_pass():
         logging.error(f"{my_pass.__name__} - ОШИБКА", exc_info=True)
     
 # письмо если нет ошибок
-def send_mail(dst_emails=''):
+def send_mail(send_to:list):
+    """рассылка почты
+
+    Args:
+        send_to (list): _description_
+    """
     logging.info(f"{send_mail.__name__} - ЗАПУСК")
     
     try:
-        xlsxfile = '//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/ТЕМП_СВОД1.xlsx'
-        me = "skrutko@sim-auto.ru"
-        # Filling e-mail info
-        msg = MIMEMultipart()
-        msg['Subject'] = f"Темпы на {(datetime.now()-timedelta(1)).strftime('%d-%m-%Y')}"
-        msg['From'] = me
-        msg['To'] = dst_emails
-        to = msg['To'].split()
-        msg['Date'] = formatdate(localtime=True)
-        html = f"""\
-                <html>
-                <head></head>
-                <body>
-                    <p><br>
-                        <strong>Здравствуйте</strong><br>
-                        <br>
-                        Во вложении темпы на {(datetime.now()- timedelta(1)).strftime('%d-%m-%Y')} <br>
-
-                        письмо сформировано автоматически <br>
-                        <br>
-                    </p>
-                </body>
-                </html>
-                """
-        # Record the MIME type
-        letter = MIMEText(html, 'html')
-        # Attach letter into message container.
-        msg.attach(letter)
-        # Attach xlsx file
-        part = MIMEBase('application', "octet-stream")
-        part.set_payload(open(xlsxfile, "rb").read())
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition', 'attachment', filename = 'temp.xlsx')
-        msg.attach(part)
-        # Send the message via example.com SMTP server.
-        s = smtplib.SMTP('server-vm36.SIM.LOCAL')
-        # sendmail function takes 3 arguments: sender's address, recipient's address
-        # and message to send - here it is sent as one string.
-        s.sendmail(me, to, msg.as_string())
-        s.quit()
+        send_from = 'skrutko@sim-auto.ru'                                                                
+        subject = f"Темпы на {(datetime.now()-timedelta(1)).strftime('%d-%m-%Y')}"                                                                  
+        text = f"Здравствуйте\nВо вложении темпы на {(datetime.now()- timedelta(1)).strftime('%d-%m-%Y')}"                                                                      
+        files = "//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/ТЕМП_СВОД1.xlsx"  
+        server = "server-vm36.SIM.LOCAL"
+        port = 587
+        username='skrutko'
+        password=my_pass()
+        isTls=True
         
+        msg = MIMEMultipart()
+        msg['From'] = send_from
+        msg['To'] = ','.join(send_to)
+        msg['Date'] = formatdate(localtime = True)
+        msg['Subject'] = subject
+        msg.attach(MIMEText(text))
+
+        part = MIMEBase('application', "octet-stream")
+        part.set_payload(open(files, "rb").read())
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', 'attachment; filename="temp.xlsx"') # имя файла должно быть на латинице иначе придет в кодировке bin
+        msg.attach(part)
+
+        smtp = smtplib.SMTP(server, port)
+        if isTls:
+            smtp.starttls()
+        smtp.login(username, password)
+        smtp.sendmail(send_from, send_to, msg.as_string())
+        smtp.quit()
         logging.info(f"{send_mail.__name__} - ВЫПОЛНЕНО")
-        logging.info(f"Адреса рассылки {dst_emails}")
+        logging.info(f"Адреса рассылки {send_to}")
     except:
         logging.error(f"{send_mail.__name__} - ОШИБКА", exc_info=True)
     
 
 # письмо если есть ошибки
-def send_mail_danger(dst_emails=''):
+def send_mail_danger(send_to:list):
+    """расслыка почты если ошибка
+
+    Args:
+        send_to (_type_): _description_
+    """
     logging.info(f"{send_mail_danger.__name__} - ЗАПУСК")
     
-    try:
-        xlsxfile = '//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/py_log.log'
-        me = "skrutko@sim-auto.ru"
-        # Filling e-mail info
-        msg = MIMEMultipart()
-        msg['Subject'] = f"проверьте исходники {'//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_'}"
-        msg['From'] = me
-        msg['To'] = dst_emails
-        to = msg['To'].split()
-        msg['Date'] = formatdate(localtime=True)
-        html = f"""\
-                <html>
-                <head></head>
-                <body>
-                    <p><br>
-                        <strong>ОШИБКА</strong><br>
-                        <br>
-                         
-
-                        письмо сформировано автоматически** <br>
-                        <br>
-                    </p>
-                </body>
-                </html>
-                """
-        # Record the MIME type
-        letter = MIMEText(html, 'html')
-        # Attach letter into message container.
-        msg.attach(letter)
-        # Attach xlsx file
-        part = MIMEBase('application', "octet-stream")
-        part.set_payload(open(xlsxfile, "rb").read())
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition', 'attachment', filename = 'log.txt')
-        msg.attach(part)
-        # Send the message via example.com SMTP server.
-        s = smtplib.SMTP('server-vm36.SIM.LOCAL')
-        # sendmail function takes 3 arguments: sender's address, recipient's address
-        # and message to send - here it is sent as one string.
-        s.sendmail(me, to, msg.as_string())
-        s.quit()
+    try:                                                                                       
+        send_from = 'skrutko@sim-auto.ru'                                                                
+        subject =  f"проверьте исходники {'//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_'}"                                                                  
+        text = f"проверьте исходники {'//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_'}"                                                                      
+        files = '//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/py_log.log'  
+        server = "server-vm36.SIM.LOCAL"
+        port = 587
+        username='skrutko'
+        password=my_pass()
+        isTls=True
         
+        msg = MIMEMultipart()
+        msg['From'] = send_from
+        msg['To'] = ','.join(send_to)
+        msg['Date'] = formatdate(localtime = True)
+        msg['Subject'] = subject
+        msg.attach(MIMEText(text))
+
+        part = MIMEBase('application', "octet-stream")
+        part.set_payload(open(files, "rb").read())
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', 'attachment; filename="log.txt"') # имя файла должно быть на латинице иначе придет в кодировке bin
+        msg.attach(part)
+
+        smtp = smtplib.SMTP(server, port)
+        if isTls:
+            smtp.starttls()
+        smtp.login(username, password)
+        smtp.sendmail(send_from, send_to, msg.as_string())
+        smtp.quit()
         logging.info(f"{send_mail_danger.__name__} - ВЫПОЛНЕНО")
-        logging.info(f"Адреса рассылки {dst_emails}")
+        logging.info(f"Адреса рассылки {send_to}")
     except:
         logging.error(f"{send_mail_danger.__name__} - ОШИБКА", exc_info=True)
     
@@ -1067,9 +1069,12 @@ logging.info(f"конкатинация выполнена")
 
 
 # применяем функцию для вычленения Рыбинска из Ярославля
-logging.info(f"применяем функцию для вычленения Рыбинска из Ярославля")
-result['регион'] = result.apply(lambda x: reg_test(x.регион, x.подразделение), axis=1)
-logging.info(f"вычленения Рыбинска из Ярославля выполнено")
+logging.info(f"запуск функции reg_test")
+try:
+    result['регион'] = result.apply(lambda x: reg_test(x.регион, x.подразделение), axis=1)
+    logging.info(f"{reg_test.__name__} - ВЫПОЛНЕНО")
+except:
+    logging.error(f"{reg_test.__name__} - ОШИБКА", exc_info=True)
 
 
 # оставляем только нужные столбцы
@@ -1164,8 +1169,10 @@ try:
     xlapp = win32com.client.DispatchEx("Excel.Application")
     wb = xlapp.Workbooks.Open("//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/ТЕМП_СВОД1.xlsx")
     wb.Application.AskToUpdateLinks = False   # разрешает автоматическое  обновление связей (файл - парметры - дополнительно - общие - убирает галку запрашивать об обновлениях связей)
+    wb.Application.DisplayAlerts = True  # отображает панель обновления иногда из-за перекрестного открытия предлагает ручной выбор обновления True - показать панель
     wb.RefreshAll()
-    time.sleep(60) # задержка 60 секунд, чтоб уж точно обновились сводные wb.RefreshAll() - иначе будет ошибка 
+    #xlapp.CalculateUntilAsyncQueriesDone() # удержит программу и дождется завершения обновления. было прописано time.sleep(30)
+    time.sleep(40) # задержка 60 секунд, чтоб уж точно обновились сводные wb.RefreshAll() - иначе будет ошибка 
     wb.Application.AskToUpdateLinks = True   # запрещает автоматическое  обновление связей / то есть в настройках экселя (ставим галку обратно)
     wb.Save()
     wb.Close()
@@ -1180,13 +1187,9 @@ except:
     
     
 # список с адресами рассылки
-lst_email = 'xxxxxx@sim-auto.ru, xxxxxx@sim-auto.ru, xxxxxx@sim-auto.ru' # нет ошибок
-lst_email_error = 'xxxxx@sim-auto.ru, xxxxx@sim-auto.ru' # есть ошибки
+lst_email = read_email_adress()
+lst_email_error = ['skrutko@sim-auto.ru', 'zhurin@sim-auto.ru'] # есть ошибки
 # запуск функции рассылки почты
 logging.info(f"детектим ошибки, проверяем почту")
 sending_mail(lst_email, lst_email_error)
 logging.info(f"почта отправлена")
-
-
-# lst_email = 'xxxxx@sim-auto.ru, xxxxx@sim-auto.ru, xxxx@sim-auto.ru' # нет ошибок
-# lst_email_error = 'xxxx@sim-auto.ru, xxxx@sim-auto.ru' # есть ошибки
