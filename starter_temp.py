@@ -108,12 +108,8 @@ def header_df(df):
             row_number = None
             if counter_vin >0:
                 row_number = df[df[name_column].apply(lambda x: str(x).lower())=='vin'].index[0]
-                #print(f"VIN найден в столбце {i}")
                 break
-
-        #print(f"количество упоминаний слова vin в первой строке = {count_col} (то есть если в NP шапка идет первой строкой, но так не всегда)")
-        #print(count_col, counter_vin, name_column, row_number)
-        #print('df не меняем' if count_col != 0 else f'строка {row_number}')
+                
         if count_col != 0:
             return df # если шапка в первой строке, ничего не изменяем
         else:
@@ -1188,7 +1184,7 @@ except:
     
 # список с адресами рассылки
 lst_email = read_email_adress()
-lst_email_error = ['skrutko@sim-auto.ru', 'zhurin@sim-auto.ru'] # есть ошибки
+lst_email_error = ['skrutko@sim-auto.ru'] # есть ошибки
 # запуск функции рассылки почты
 logging.info(f"детектим ошибки, проверяем почту")
 sending_mail(lst_email, lst_email_error)
