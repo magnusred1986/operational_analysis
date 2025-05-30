@@ -1,16 +1,10 @@
-# блок логирования
-import logging
-logging.basicConfig(level=logging.INFO, filename="//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/py_log.log",filemode="w", format="%(asctime)s %(levelname)s %(message)s")
-# https://habr.com/ru/companies/wunderfund/articles/683880/   - ссылка на статью логирования
-# filemode="a" дозапись "w" - перезапись
-logging.info("Запуск скрипта starter_temp.py")
+import os
+script_dir = os.path.dirname(os.path.abspath(__file__)) # привет пути )))
 
 # блок обратки данных
 import pandas as pd
 import os
 from datetime import datetime, date, timedelta
-pd.options.display.max_colwidth = 100 # увеличить максимальную ширину столбца
-pd.set_option('display.max_columns', None) # макс кол-во отображ столбц
 
 # блок импортов для обновления сводных
 import pythoncom
@@ -19,18 +13,73 @@ import win32com.client
 import time
 
 # блок импорта отправки почты
-import smtplib,ssl
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email.mime.text import MIMEText
+import smtplib
 from email.utils import formatdate
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
 from email import encoders
+import logging
 
-def read_email_adress(mail = fr'\\sim.local\data\Varsh\OFFICE\CAGROUP\run_python\task_scheduler\temp_\Список_адресатов.xlsx'):
+from functools import wraps
+import time
+# декоратор для times-повторного выполнения функции при неудачном выполнении 
+def retry(times, sec_):
+    """_summary_
+
+    Args:
+        times (_type_): попыток
+        sec_ (_type_): секунд между попытками
+    """
+    def wrapper_fn(f):
+        @wraps(f)
+        def new_wrapper(*args,**kwargs):
+            for i in range(times):
+                try:
+                    print ('---ПОПЫТКА ЧТЕНИЯ ФАЙЛА ---- %s' % (i + 1))
+                    return f(*args,**kwargs)
+                except Exception as e:
+                    error = e
+                    print(time.sleep(sec_))
+            raise error
+        return new_wrapper
+    return wrapper_fn
+
+
+@retry(10, 5)
+def links_main(name_file, key):
+    """функция для работы с путями, ссылки, вводные данные хранятся в блокноте
+
+    Args:
+        name_file (_type_): имя файла
+        key (_type_): имя ключа
+
+    Returns:
+        _type_: _description_
+    """
+    try:
+        file = pd.read_csv(name_file, sep=':')
+        result = list(file[file['ключ']==key]['значение'])[0]
+        return result
+    except Exception as ex_:
+        print(f'ошибка функции {links_main.__name__} не удалось файл {name_file} или данные в нем {key} ошибка {ex_}')
+        
+        
+logging.basicConfig(level=logging.INFO, filename=links_main(fr'{script_dir}/info_links.txt', 'log_file'),filemode="w", format="%(asctime)s %(levelname)s %(message)s")
+logging.info("Запуск скрипта temp.ipynb")
+
+SEND_FROM = links_main(fr'{script_dir}/info_links.txt', 'send_from')
+FILES = links_main(fr'{script_dir}/info_links.txt', 'files')
+SERVER = links_main(fr'{script_dir}/info_links.txt', 'server')
+PORT = int(links_main(fr'{script_dir}/info_links.txt', 'port'))
+USER_NAME = links_main(fr'{script_dir}/info_links.txt', 'username')
+
+
+def read_email_adress(mail = links_main(fr'{script_dir}/info_links.txt', 'post_email_adress')):
     """Функция считывания адресатов для рассылки
 
     Args:
-        mail (_type_, optional): _description_. Defaults to fr'\sim.local\data\Varsh\OFFICE\CAGROUP\run_python\task_scheduler\temp_\Список_адресатов.xlsx'.
+        mail (_type_, optional): _description_
 
     Returns:
         _type_: возфращает строку со списком email
@@ -42,7 +91,8 @@ def read_email_adress(mail = fr'\\sim.local\data\Varsh\OFFICE\CAGROUP\run_python
         return list(em_list['email'])
     except:
         logging.error(f"{read_email_adress.__name__} - ОШИБКА", exc_info=True)
-
+        
+        
 def testing_links(links:list):
     """Проверка ссылкок на файлы  
     
@@ -60,6 +110,7 @@ def testing_links(links:list):
         else:
             print(f"ОШИБКА - ", i)
             logging.error(f"{testing_links.__name__} ссылка не рабочая {i}", exc_info=True)
+            
             
 def reg_test(rg, podr):
     """функция находит YAR и проверяет есть ли там RYB
@@ -79,8 +130,8 @@ def reg_test(rg, podr):
             return 'RYB'
     else:
         return rg
-            
-# функция проверки шапки по первой строке если шапка не в первой строке и такм нен упоминания слова vin значит ищем по всем столцам и находим первое вхождение возвращаем строку и обрезаем df
+    
+    
 def header_df(df):
     """Преобразование шапки df  
     
@@ -109,21 +160,18 @@ def header_df(df):
             if counter_vin >0:
                 row_number = df[df[name_column].apply(lambda x: str(x).lower())=='vin'].index[0]
                 break
-                
+            
         if count_col != 0:
             return df # если шапка в первой строке, ничего не изменяем
         else:
             new_header = df.iloc[row_number] # берем первую строку как заголовок
             df = df[row_number+1:]  # отбрасываем исходный заголовок
-            df.rename(columns=new_header, inplace=True) # переименовываем столбцы
-            #df = df[(df['VIN'].notna()) & (df['VIN'].apply(lambda x: not str(x).isdigit())) & (df['VIN'].apply(lambda x: len(str(x))>1)) ] # vin не пусто и vin не число и длина больше 1 символа
-            #df = df[(df['VIN'].apply(lambda x: not str(x).isdigit()))] 
+            df.rename(columns=new_header, inplace=True) # переименовываем столбцы 
             return df
     except:
         logging.error(f"{header_df.__name__} - ОШИБКА", exc_info=True)
-    
-
-# считываем актуальный пароль 
+        
+        
 def my_pass():
     """функция считывания пароля
 
@@ -133,13 +181,14 @@ def my_pass():
     logging.info(f"{my_pass.__name__} - ЗАПУСК")
     
     try:
-        with open(f'//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/password_email.txt', 'r') as actual_pass:
+        with open(links_main(fr'{script_dir}/info_links.txt', 'password'), 'r') as actual_pass:
+            
             return actual_pass.read()
         
     except:
         logging.error(f"{my_pass.__name__} - ОШИБКА", exc_info=True)
-    
-# письмо если нет ошибок
+        
+        
 def send_mail(send_to:list):
     """рассылка почты
 
@@ -149,15 +198,15 @@ def send_mail(send_to:list):
     logging.info(f"{send_mail.__name__} - ЗАПУСК")
     
     try:
-        send_from = 'skrutko@sim-auto.ru'                                                                
+        send_from = SEND_FROM                                                                
         subject = f"Темпы на {(datetime.now()-timedelta(1)).strftime('%d-%m-%Y')}"                                                                  
         text = f"Здравствуйте\nВо вложении темпы на {(datetime.now()- timedelta(1)).strftime('%d-%m-%Y')}"                                                                      
-        files = "//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/ТЕМП_СВОД1.xlsx"  
-        server = "server-vm36.SIM.LOCAL"
-        port = 587
-        username='skrutko'
-        password=my_pass()
-        isTls=True
+        files = FILES
+        server = SERVER
+        port = PORT
+        username = USER_NAME
+        password = my_pass()
+        isTls = True
         
         msg = MIMEMultipart()
         msg['From'] = send_from
@@ -182,9 +231,8 @@ def send_mail(send_to:list):
         logging.info(f"Адреса рассылки {send_to}")
     except:
         logging.error(f"{send_mail.__name__} - ОШИБКА", exc_info=True)
-    
-
-# письмо если есть ошибки
+        
+        
 def send_mail_danger(send_to:list):
     """расслыка почты если ошибка
 
@@ -194,13 +242,13 @@ def send_mail_danger(send_to:list):
     logging.info(f"{send_mail_danger.__name__} - ЗАПУСК")
     
     try:                                                                                       
-        send_from = 'skrutko@sim-auto.ru'                                                                
-        subject =  f"проверьте исходники {'//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_'}"                                                                  
-        text = f"проверьте исходники {'//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_'}"                                                                      
-        files = '//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/py_log.log'  
-        server = "server-vm36.SIM.LOCAL"
-        port = 587
-        username='skrutko'
+        send_from = SEND_FROM                                                              
+        subject =  f"проверьте исходники {links_main(fr'{script_dir}/info_links.txt', 'ishodniki')}"                                                                  
+        text = f"проверьте исходники {links_main(fr'{script_dir}/info_links.txt', 'ishodniki')}"                                                                      
+        files = links_main(fr'{script_dir}/info_links.txt', 'log_file')  
+        server = SERVER
+        port = PORT
+        username = USER_NAME
         password=my_pass()
         isTls=True
         
@@ -227,9 +275,9 @@ def send_mail_danger(send_to:list):
         logging.info(f"Адреса рассылки {send_to}")
     except:
         logging.error(f"{send_mail_danger.__name__} - ОШИБКА", exc_info=True)
-    
-
-def detected_danger(filename_log = "//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/py_log.log"):
+        
+        
+def detected_danger(filename_log = links_main(fr'{script_dir}/info_links.txt', 'log_file')):
     """обнаружение ошибок в логах   
     ищет 'warning'
 
@@ -240,7 +288,7 @@ def detected_danger(filename_log = "//sim.local/data/Varsh/OFFICE/CAGROUP/run_py
     
     try:
         with open(filename_log, '+r') as file:
-            return 'warning' in file.read().lower()
+            return 'error' in file.read().lower()
     except:
         logging.error(f"{detected_danger.__name__} - ОШИБКА", exc_info=True)
         
@@ -262,484 +310,19 @@ def sending_mail(lst_email, lst_email_error):
         logging.error(f"{sending_mail.__name__} - ОШИБКА", exc_info=True)
         
         
+def read_json():
+    # ЧТЕНИЕ JSON
+    import json
+    with open(links_main(fr'{script_dir}/info_links.txt', 'data_json'), 'r', encoding='utf-8') as json_file:
+        result = json.load(json_file)
+    return result
 
+lst_df = read_json()
 
-lst_df = {'df_chr_msc' : {'link': '//sim.local/data/Varsh/DPA/CHERY-ЮЗ/Payment/NP-Chery.xlsm',
-                          'reg': 'MSK',
-                          'brand' : 'CHERY',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'кре_нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'кре_нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-          
-          'df_kia_msc' : {'link': '//sim.local/data/Varsh/DPA/КИА-ЮЗ/NP-ЮЗ-Киа.xlsm',
-                          'reg': 'MSK',
-                          'brand' : 'KIA',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-          
-          'df_kia_msc_korp' : {'link': '//sim.local/data/Varsh/DPA/КИА-ЮЗ/NP-ЮЗ-Киа-Корп.xlsm',
-                          'reg': 'MSK',
-                          'brand' : 'KIA',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-          
-          
-          'df_kia_msc_arhiv' : {'link': '//sim.local/data/Varsh/OFFICE/CAGROUP/АВТО/АВТО продажи/Архив/КИА/NP_kia.xlsx',
-                          'reg': 'MSK',
-                          'brand' : 'KIA',
-                          'lst_sheet_name' : 'NP',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-          
-          'df_suz_msc_vved' : {'link': '//sim.local/data/Varsh/DPA/Юго-Запад/Payment/NP-ЮЗ.xlsm',
-                          'reg': 'MSK',
-                          'brand' : 'SUZUKI',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-          
-          'df_suz_msc_madi' : {'link': '//Sim.local/data/Madi/FIN/Payment/NP-M.xlsm',
-                          'reg': 'MSK',
-                          'brand' : 'SUZUKI',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-          
-          'df_ovp_msc_vved' : {'link': '//sim.local/data/Varsh/DPA/Юго-Запад/Payment/ОВП ЮЗ.xlsx',
-                          'reg': 'MSK',
-                          'brand' : 'OVP',
-                          'lst_sheet_name' : 'Склад',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа__контракта', 'дата_выдачи', 'дата_полной_оплаты', 'цена_продажи,_руб.', 'примечание', 'источник_а_м'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа__контракта' : 'дата_заказа', 
-                                          'дата_выдачи' : 'дата_выдачи', 
-                                          'дата_полной_оплаты' : 'дата_оплаты', 
-                                          'цена_продажи,_руб.' : 'сум_спр_сч', 
-                                          'примечание': 'кре_нал',
-                                          'источник_а_м': 'подразделение'}},
-          
-          'df_ovp_msc_madi' : {'link': '//sim.local/data/Madi/FIN/Payment/ОВП МАДИ.xlsx',
-                          'reg': 'MSK',
-                          'brand' : 'OVP',
-                          'lst_sheet_name' : 'Склад',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа__контракта', 'дата_выдачи', 'дата_полной_оплаты', 'цена_продажи,_руб.', 'примечание', 'источник_а_м'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа__контракта' : 'дата_заказа', 
-                                          'дата_выдачи' : 'дата_выдачи', 
-                                          'дата_полной_оплаты' : 'дата_оплаты', 
-                                          'цена_продажи,_руб.' : 'сум_спр_сч', 
-                                          'примечание': 'кре_нал',
-                                          'источник_а_м': 'подразделение'}},
-          
-          'df_mzd_msc_vved' : {'link': '//sim.local/data/Varsh/DPA/MAZDA-ЮЗ/Payment/NP-МаздаМосква.xlsm',
-                          'reg': 'MSK',
-                          'brand' : 'MAZDA',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-          
-          'df_jtr_msc_vved' : {'link': '//Sim.local/data/Varsh/DPA/MAZDA-ЮЗ/JETOUR ЮЗ/Диспонент/NP-Jetour.xlsm',
-                          'reg': 'MSK',
-                          'brand' : 'JETOUR',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-          
-          'df_bai_msc_varsh' : {'link': '//sim.local/data/Varsh/SalonHyundai/Секретари-оформители/внутренние отчеты/Склад BAIC Москва.xlsx',
-                          'reg': 'MSK',
-                          'brand' : 'BAIC',
-                          'lst_sheet_name' : 'СКЛАД',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заключения_договора', 'дата_выдачи_клиенту', 'дата_полной_оплаты_ам_клиентом', 'сумма_оплаченная_клиентом', 'нал_кредит', 'регион'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заключения_договора' : 'дата_заказа', 
-                                          'дата_выдачи_клиенту' : 'дата_выдачи', 
-                                          'дата_полной_оплаты_ам_клиентом' : 'дата_оплаты', 
-                                          'сумма_оплаченная_клиентом' : 'сум_спр_сч', 
-                                          'нал_кредит': 'кре_нал',
-                                          'регион': 'подразделение'}},
-          
-           'df_hyu_msc_varsh' : {'link': '//sim.local/data/Varsh/SalonHyundai/Секретари-оформители/внутренние отчеты/Склад HYUNDAI Москва.xlsx',
-                          'reg': 'MSK',
-                          'brand' : 'HYUNDAI',
-                          'lst_sheet_name' : 'СКЛАД',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заключения_договора', 'дата_выдачи_клиенту', 'дата_полной_оплаты_ам_клиентом', 'сумма_оплаченная_клиентом', 'нал_кредит', 'регион'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заключения_договора' : 'дата_заказа', 
-                                          'дата_выдачи_клиенту' : 'дата_выдачи', 
-                                          'дата_полной_оплаты_ам_клиентом' : 'дата_оплаты', 
-                                          'сумма_оплаченная_клиентом' : 'сум_спр_сч', 
-                                          'нал_кредит': 'кре_нал',
-                                          'регион': 'подразделение'}},
-           
-           'df_hyu_uka_msc_varsh' : {'link': '//sim.local/data/Varsh/SalonHyundai/Секретари-оформители/online продажи/UKA/Склад UKA - Аукцион.xlsx',
-                          'reg': 'MSK',
-                          'brand' : 'UKA',
-                          'lst_sheet_name' : 'Склад UKA-Аукцион',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заключения_договора', 'дата_выдачи_клиенту', 'дата_полной_оплаты_ам_клиентом', 'сумма_оплаченная_клиентом', 'нал_кредит', 'пустой1'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заключения_договора' : 'дата_заказа', 
-                                          'дата_выдачи_клиенту' : 'дата_выдачи', 
-                                          'дата_полной_оплаты_ам_клиентом' : 'дата_оплаты', 
-                                          'сумма_оплаченная_клиентом' : 'сум_спр_сч', 
-                                          'нал_кредит': 'кре_нал',
-                                          'пустой1': 'подразделение'}},
-           
-           'df_suz_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/Mazda!/Сетевая информация/Отчеты NP/NP-SuzYarNEW 2020.xlsm',
-                          'reg': 'YAR',
-                          'brand' : 'SUZUKI',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-           
-           'df_mzd_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/Mazda!/Сетевая информация/Отчеты NP/NP-Mazda 2020.xlsm',
-                          'reg': 'YAR',
-                          'brand' : 'MAZDA',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-           
-            'df_ren_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/Отдел логистики/NP. PLAN-REAL/New_Pay$ (RUB) Ярославль.xlsm',
-                          'reg': 'YAR',
-                          'brand' : 'RENAULT',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-            
-             'df_hyu_yar' : {'link': '//sim.local/data/Yar/YAR_Hyundai/Отдел продаж/ОТЧЕТЫ/New_Pay$ (RUB)Hyundai.xlsm',
-                          'reg': 'YAR',
-                          'brand' : 'HYUNDAI',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-             
-             'df_vw_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/Volkswagen/!Отдел продаж/ЛОГИСТ/NP/NP-Volkswagen.xlsm',
-                          'reg': 'YAR',
-                          'brand' : 'VOLKSWAGEN',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-             
-              'df_chv_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/Chevrolet/Логистика/New_Pay$ (RUB) Chevrolet.xlsm',
-                          'reg': 'YAR',
-                          'brand' : 'CHEVROLET',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-              
-              'df_ovp_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/TRADE-IN/Отчеты для Москвы/Новый ОВП/ОВП-Яр..xlsx',
-                          'reg': 'YAR',
-                          'brand' : 'OVP',
-                          'lst_sheet_name' : 'Склад',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа__контракта', 'дата_выдачи', 'дата_полной_оплаты', 'цена_продажи,_руб.', 'примечание', 'регион'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа__контракта' : 'дата_заказа', 
-                                          'дата_выдачи' : 'дата_выдачи', 
-                                          'дата_полной_оплаты' : 'дата_оплаты', 
-                                          'цена_продажи,_руб.' : 'сум_спр_сч', 
-                                          'примечание': 'кре_нал',
-                                          'регион': 'подразделение'}},
-              
-               'df_jac_yar' : {'link': '//sim.local/data/Yar/YAR_JAC/Отдел продаж/Логистика/New_Pay$ (RUB) Jac.xlsm',
-                          'reg': 'YAR',
-                          'brand' : 'JAC',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-               
-                'df_mch_yar' : {'link': '//sim.local/data/Yar/YAR_Moskvich/Отдел продаж/ЛОГИСТИКА/New_Pay$ (RUB) Москвич.xlsm',
-                          'reg': 'YAR',
-                          'brand' : 'MOSKVICH',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-                
-                'df_faw_yar' : {'link': '//sim.local/data/Yar/YAR_FAW/Отдел продаж/ЛОГИСТ FAW+JETTA/NP/NP-FAW.xlsm',
-                          'reg': 'YAR',
-                          'brand' : 'FAW',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-                
-                'df_jet_yar' : {'link': '//sim.local/data/Yar/YAR_FAW/Отдел продаж/ЛОГИСТ FAW+JETTA/NP/NP-JETTA.xlsm',
-                          'reg': 'YAR',
-                          'brand' : 'JETTA',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-                
-                 'df_chr_yar' : {'link': '//sim.local/data/Yar/Старая папка Общая/Mazda!/Сетевая информация/Отчеты NP/NP-Chery 2023.xlsm',
-                          'reg': 'YAR',
-                          'brand' : 'CHERY',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд','бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-                 
-                  'df_bai_yar' : {'link': '//sim.local/data/Yar/YAR_BAIC/Отдел продаж/ЛОГИСТИКА/New_Pay$ (RUB)Baic.xlsm',
-                          'reg': 'YAR',
-                          'brand' : 'BAIC',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-                  
-                   'df_ren_ryb' : {'link': '//sim.local/data/Yar/Старая папка Общая/Отдел логистики/NP. PLAN-REAL/New_Pay$ (RUB) Рыбинск.xlsm',
-                          'reg': 'RYB',
-                          'brand' : 'RENAULT',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-                   
-                    'df_prch_ryb' : {'link': '//sim.local/data/Yar/YAR_Rybinsk/Отдел продаж/!ОТЧЕТЫ/New_Pay$ (RUB)Rybinsk.xlsm',
-                          'reg': 'RYB',
-                          'brand' : 'PRCH',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-                    
-                    'df_mzd_sar' : {'link': '//Sim.local/data/Varsh/DPA/САРАТОВ/NP-MazdaСаратов.xlsm',
-                          'reg': 'SAR',
-                          'brand' : 'MAZDA',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-                    
-                    
-                     'df_omd_sar' : {'link': '//Sim.local/data/Varsh/DPA/САРАТОВ/NP-OmodaСаратов.xlsm',
-                          'reg': 'SAR',
-                          'brand' : 'OMODA',
-                          'lst_sheet_name' : 'Авто',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа', 'дата_ф._выдачи', 'ф.дата_полн._опл.', 'сумма_спр.сч._(руб)', 'б_н___нал', 'подразделение'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа' : 'дата_заказа', 
-                                          'дата_ф._выдачи' : 'дата_выдачи', 
-                                          'ф.дата_полн._опл.' : 'дата_оплаты', 
-                                          'сумма_спр.сч._(руб)' : 'сум_спр_сч', 
-                                          'б_н___нал': 'кре_нал',
-                                          'подразделение': 'подразделение'}},
-                     
-                     
-                     'df_ovp_sar' : {'link': '//Sim.local/data/Varsh/DPA/САРАТОВ/ОВП-Саратов.xlsx',
-                          'reg': 'SAR',
-                          'brand' : 'OVP',
-                          'lst_sheet_name' : 'Склад',
-                          'white_list_columns' : ['модель', 'vin', 'дата_заказа__контракта', 'дата_выдачи', 'дата_полной_оплаты', 'цена_продажи,_руб.', 'примечание', 'площадка'],
-                          'order_columns': ['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения', 'подразделение'],
-                          'rename_col' : {'модель' : 'модель', 
-                                          'vin' : 'vin', 
-                                          'дата_заказа__контракта' : 'дата_заказа', 
-                                          'дата_выдачи' : 'дата_выдачи', 
-                                          'дата_полной_оплаты' : 'дата_оплаты', 
-                                          'цена_продажи,_руб.' : 'сум_спр_сч', 
-                                          'примечание': 'кре_нал',
-                                          'площадка': 'подразделение'}},
-                     
-          
-          
-          }
-
-# \\sim.local\data\Varsh\OFFICE\CAGROUP\АВТО\АВТО продажи\Архив\КИА   - здесь кияшные NP_kia.xlsx в этом файле все архивы всех годов и текущего
 
 # тестирование ссылок
 testing_links([lst_df[i]['link'] for i in lst_df.keys()])
+
 
 
 class Manufactory_df:
@@ -772,7 +355,7 @@ class Manufactory_df:
         self.name_df = name_df    # иницализируем имя, которое будет подаваться из словаря
         self.lst_diction_df = lst_diction_df
         self.flg = flg
-       
+        print(self.name_df)
         self.white_list = 'white_list_columns'
         self.rename_col = 'rename_col'
         self.reg = 'reg' 
@@ -1046,9 +629,8 @@ class Manufactory_df:
                 logging.info(f"{self.fnc_auto.__name__} - Автоприменение функций предобработки - ОТКЛ")
         except:
             logging.error(f"{self.fnc_auto.__name__} - ОШИБКА", exc_info=True)
-            
-        
-# наполняем словарь базами данных создавая экземпляры класса
+
+
 catalog_df = {} # словарь со всеми базами
 
 for i in lst_df.keys():
@@ -1056,37 +638,57 @@ for i in lst_df.keys():
     
 logging.info(f"словарь с датафреймами заполнен")
 
-
-# сборка всех df в 1
 logging.info(f"конкатинация всех датафремов")
 frames = [catalog_df[i].df for i in catalog_df.keys()]
 result = pd.concat(frames)
 logging.info(f"конкатинация выполнена")
+result.to_excel(links_main(fr'{script_dir}/info_links.txt', 'mean_save'))
+
+def conversorrrrrr_date(df, name_date_columns:str):
+    """функция для преобразования кривых формат дат, в том числе формата 41253   
+      
+    Подается df и имя столбца
+
+    Args:
+        df (dataframe): df
+        name_date_columns (str): имя столбца с датой (который хотим преобразовать)  
+
+    Returns:
+        _type_: возварщает преобразованный df  
+    """
+    from datetime import datetime
+    
+    formating = (lambda x: datetime.fromordinal(datetime(1900, 1, 1).toordinal() + int(x) - 2))
+    df[name_date_columns] = df[name_date_columns].apply(lambda x: str(x).replace('00:00:00','').strip() if '00:00:00' in str(x) else x)
+    df[name_date_columns] = df[name_date_columns].apply(lambda x: formating(x) if len(str(x))==5 and str(x)[0] == '4' else x)
+    df[name_date_columns] = pd.to_datetime(df[name_date_columns], format='mixed')
+    return df
 
 
-# применяем функцию для вычленения Рыбинска из Ярославля
+result = conversorrrrrr_date(result, 'дата_заказа')
+result = conversorrrrrr_date(result, 'дата_выдачи')
+result.to_excel(links_main(fr'{script_dir}/info_links.txt', 'mean_save1'))
+
 logging.info(f"запуск функции reg_test")
 try:
     result['регион'] = result.apply(lambda x: reg_test(x.регион, x.подразделение), axis=1)
     logging.info(f"{reg_test.__name__} - ВЫПОЛНЕНО")
 except:
     logging.error(f"{reg_test.__name__} - ОШИБКА", exc_info=True)
-
+result
 
 # оставляем только нужные столбцы
-logging.info(f"обрезаем столбцы")
 result = result[['модель', 'vin', 'дата_заказа', 'дата_выдачи', 'дата_оплаты', 'сум_спр_сч', 'кре_нал', 'регион', 'бренд', 'бд', 'дата_изменения']]
-logging.info(f"обрезали")
-
 
 logging.info(f"сохранение датафремов")
+
 try:
-    result.to_excel('//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/temp.xlsx')
+    result.to_excel(links_main(fr'{script_dir}/info_links.txt', 'mean_save2'))
     logging.info(f"сохранены")
 except:
     logging.error(f"ОШИБКА сохранения", exc_info=True)
-        
-        
+    
+    
 logging.info(f"разделение копированием датафремов на выдачи и заказы ")
 try:
     df_yudach = result.copy()
@@ -1094,8 +696,8 @@ try:
     logging.info(f"разделены")
 except:
     logging.error(f"ОШИБКА копирования/разделения", exc_info=True)
-
-          
+    
+    
 logging.info(f"Формируем выдачи ")
 try:
     df_yudach['выдача'] = df_yudach['дата_выдачи'].apply(lambda x: 1 if len(str(x))>4 else 0)
@@ -1119,7 +721,7 @@ try:
 except:
     logging.error(f"ОШИБКА формирования заказов", exc_info=True)
     
-
+    
 # конкатинируем выдачи и заказы
 logging.info(f"Конкатинируем выдачи с заказами")
 try:
@@ -1136,11 +738,10 @@ try:
     logging.info(f"добавлен")
     #result1
 except:
-    logging.error(f"ОШИБКА добавления столбца", exc_info=True)
+    logging.error(f"ОШИБКА добавления столбца error", exc_info=True)
     
-
+    
 # исключаем сегодняшнюю дату
-
 logging.info(f"Исключаем сегодняшний день")
 try:
     result1 = result1[(result1['дата'] < datetime.today().date().isoformat()) | result1['дата'].isna()]
@@ -1150,10 +751,9 @@ except:
     
     
 # сохраняем
-
-logging.info(f"сохраняем df //sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/temp_result.xlsx")
+logging.info(f"сохраняем df {links_main(fr'{script_dir}/info_links.txt', 'final_save')}")
 try:
-    result1.to_excel('//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/temp_result.xlsx')
+    result1.to_excel(links_main(fr'{script_dir}/info_links.txt', 'final_save'))
     logging.info(f"добавлен")
 except:
     logging.error(f"ОШИБКА", exc_info=True)
@@ -1163,7 +763,7 @@ except:
 logging.info(f"Обновляем сводные таблицы")
 try:
     xlapp = win32com.client.DispatchEx("Excel.Application")
-    wb = xlapp.Workbooks.Open("//sim.local/data/Varsh/OFFICE/CAGROUP/run_python/task_scheduler/temp_/ТЕМП_СВОД1.xlsx")
+    wb = xlapp.Workbooks.Open(links_main(fr'{script_dir}/info_links.txt', 'update_sv_tab'))
     wb.Application.AskToUpdateLinks = False   # разрешает автоматическое  обновление связей (файл - парметры - дополнительно - общие - убирает галку запрашивать об обновлениях связей)
     wb.Application.DisplayAlerts = True  # отображает панель обновления иногда из-за перекрестного открытия предлагает ручной выбор обновления True - показать панель
     wb.RefreshAll()
@@ -1180,12 +780,9 @@ try:
     logging.info(f"сводные таблицы - обновлены")
 except:
     logging.error(f"ОШИБКА", exc_info=True)
-    
-    
-# список с адресами рассылки
-lst_email = read_email_adress()
-lst_email_error = ['skrutko@sim-auto.ru'] # есть ошибки
-# запуск функции рассылки почты
+     
+lst_email = read_email_adress() 
 logging.info(f"детектим ошибки, проверяем почту")
+lst_email_error = ['skrutko@sim-auto.ru']
 sending_mail(lst_email, lst_email_error)
 logging.info(f"почта отправлена")
